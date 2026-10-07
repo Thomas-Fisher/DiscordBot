@@ -1,0 +1,3 @@
+# Shell scripts run inside Linux containers, so they need LF line endings whatever the checkout does
+*.sh text eol=lf
+Dockerfile text eol=lf

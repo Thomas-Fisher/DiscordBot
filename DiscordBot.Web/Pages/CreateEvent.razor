@@ -1,0 +1,105 @@
+@page "/guild/{GuildId}/events/new"
+@inherits SignedInPage
+@inject GuildClock Clock
+
+@if (IsAuthenticated)
+{
+    <div class="page-container">
+        <div class="page-header">
+            <a href="/guild/@GuildId/events" class="btn-back">&larr; Back</a>
+            <h1>Create event</h1>
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="loading">
+                <p>Loading...</p>
+            </div>
+        }
+        else if (Channels.Count == 0)
+        {
+            <div class="empty-state">
+                <p>@(ErrorMessage ?? "The bot can't see any text channels in this server, so there is nowhere to announce an event.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="event-detail event-form">
+                <div class="detail-section">
+                    <div class="detail-group">
+                        <label for="event-title">Title</label>
+                        <input id="event-title" type="text" @bind="Title" class="form-input" />
+                    </div>
+                    <div class="detail-group">
+                        <label for="event-description">Description</label>
+                        <textarea id="event-description" @bind="Description" class="form-textarea"></textarea>
+                    </div>
+                    <div class="form-row">
+                    <div class="detail-group">
+                        <label for="event-time">Start time (@Clock.Zone.Id)</label>
+                        <input id="event-time" type="datetime-local" @bind="ScheduledTimeLocal" @bind:format="yyyy-MM-ddTHH:mm" class="form-input" />
+                    </div>
+                    <div class="detail-group">
+                        <label for="event-type">Type</label>
+                        <select id="event-type" @bind="EventType" class="form-input">
+                            @foreach (var option in EventTypes)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                    </div>
+                    </div>
+                    <div class="form-row">
+                    <div class="detail-group">
+                        <label for="event-channel">Announce in</label>
+                        <select id="event-channel" @bind="ChannelId" class="form-input">
+                            <option value="">Choose a channel...</option>
+                            @foreach (var channel in Channels)
+                            {
+                                <option value="@channel.Id">#@channel.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="detail-group">
+                        <label for="event-repeat">Repeats</label>
+                        <select id="event-repeat" @bind="Recurrence" class="form-input">
+                            @foreach (var option in RepeatOptions)
+                            {
+                                <option value="@option.Value">@option.Label</option>
+                            }
+                        </select>
+                    </div>
+                    </div>
+                    <div class="form-row">
+                    <div class="detail-group">
+                        <label for="event-duration">Duration (minutes)</label>
+                        <input id="event-duration" type="number" min="@EventRules.MinDurationMinutes" max="@EventRules.MaxDurationMinutes" placeholder="No duration" @bind="DurationInput" class="form-input" />
+                    </div>
+                    <div class="detail-group">
+                        <label for="event-reminder">Remind people who haven't responded (hours before the start)</label>
+                        <input id="event-reminder" type="number" min="0.5" max="@(EventRules.MaxReminderMinutes / 60)" step="0.5" placeholder="No reminder" @bind="ReminderInput" class="form-input" />
+                        <span class="text-muted">Pings the members of the pinged roles who have not signed up. Needs at least one role.</span>
+                    </div>
+                    </div>
+                    <div class="detail-group">
+                        <label>Roles to ping</label>
+                        <RoleChecklist Roles="Roles" Selected="SelectedRoleIds" />
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="create-event" class="btn btn-primary" disabled="@IsSaving" @onclick="CreateAsync">
+                        @(IsSaving ? "Creating..." : "Create event")
+                    </button>
+                </div>
+            </div>
+        }
+
+        @if (ErrorMessage != null && Channels.Count > 0)
+        {
+            <div class="error-message">
+                <strong>Error:</strong> @ErrorMessage
+            </div>
+        }
+    </div>
+}

@@ -1,0 +1,66 @@
+@page "/guild/{GuildId}/events"
+@inherits SignedInPage
+@using DiscordBot.Web.Components
+@inject GuildClock Clock
+
+@if (IsAuthenticated)
+{
+    <div class="page-container">
+        <div class="page-header">
+            <h1>Events</h1>
+            <a href="/guild/@GuildId/events/new" class="btn btn-primary">Create event</a>
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="loading">
+                <p>Loading events...</p>
+            </div>
+        }
+        else if (ErrorMessage == null && Events.Count == 0)
+        {
+            <div class="empty-state">
+                <p>No events scheduled for this guild.</p>
+            </div>
+        }
+        else if (ErrorMessage == null)
+        {
+            <section class="events-section">
+                <h2 class="section-title">Upcoming <span class="count">@Upcoming.Count</span></h2>
+                @if (Upcoming.Count == 0)
+                {
+                    <p class="empty-state">No upcoming events.</p>
+                }
+                else
+                {
+                    <div class="events-list">
+                        @foreach (var evt in Upcoming)
+                        {
+                            <EventListItem Event="evt" GuildId="@GuildId" NowUtc="Now" />
+                        }
+                    </div>
+                }
+            </section>
+
+            @if (Past.Count > 0)
+            {
+                <section class="events-section">
+                    <h2 class="section-title">Past <span class="count">@Past.Count</span></h2>
+                    <div class="events-list">
+                        @foreach (var evt in Past)
+                        {
+                            <EventListItem Event="evt" GuildId="@GuildId" NowUtc="Now" />
+                        }
+                    </div>
+                </section>
+            }
+        }
+
+        @if (ErrorMessage != null)
+        {
+            <div class="error-message">
+                <strong>Error:</strong> @ErrorMessage
+            </div>
+        }
+    </div>
+}

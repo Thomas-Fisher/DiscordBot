@@ -1,0 +1,14 @@
+# Keeps the build context small and stops local files (and secrets) from ending up in an image
+**/bin/
+**/obj/
+.git/
+.github/
+.idea/
+.vs/
+.claude/
+docs/
+DiscordBot.Tests/
+.env
+.env.*
+**/appsettings.Development.json
+**/*.user

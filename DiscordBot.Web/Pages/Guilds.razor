@@ -1,0 +1,52 @@
+@page "/guilds"
+@inherits SignedInPage
+
+@if (IsAuthenticated)
+{
+    <div class="page-container">
+        <h1>Select a Guild</h1>
+        <p class="subtitle">Choose a guild to view events, settings, and logs</p>
+
+        @if (IsLoading)
+        {
+            <div class="loading">
+                <p>Loading guilds...</p>
+            </div>
+        }
+        else if (ErrorMessage == null && GuildList.Count == 0)
+        {
+            <div class="empty-state">
+                <p>No guilds found. You must be an admin of a server to manage it here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="guild-grid">
+                @foreach (var guild in GuildList)
+                {
+                    <a href="/guild/@guild.Id" class="guild-card">
+                        <div class="guild-icon">
+                            @if (!string.IsNullOrEmpty(guild.Icon))
+                            {
+                                <img src="@GuildIcon.Url(guild.Id, guild.Icon)" alt="@guild.Name" />
+                            }
+                            else
+                            {
+                                <div class="icon-placeholder">@(string.IsNullOrEmpty(guild.Name) ? '?' : guild.Name[0])</div>
+                            }
+                        </div>
+                        <h3>@guild.Name</h3>
+                        <p>Click to manage</p>
+                    </a>
+                }
+            </div>
+        }
+
+        @if (ErrorMessage != null)
+        {
+            <div class="error-message">
+                <strong>Error:</strong> @ErrorMessage
+            </div>
+        }
+    </div>
+}

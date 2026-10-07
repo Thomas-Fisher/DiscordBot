@@ -1,0 +1,63 @@
+@inject ApiService ApiService
+
+<div class="add-player-panel">
+    @if (_selected == null)
+    {
+        <label for="add-player-search">Find a player in the server</label>
+        <input id="add-player-search" class="form-input" type="text" placeholder="Start typing a name" value="@_search" @oninput="OnSearchInput" autocomplete="off" />
+
+        @if (_searching)
+        {
+            <p class="text-muted">Searching...</p>
+        }
+        else if (_results.Count == 0)
+        {
+            <p class="text-muted">@(_searchFailed ? _problem : "Nobody found.")</p>
+        }
+        else
+        {
+            <div class="member-results">
+                @foreach (var member in _results)
+                {
+                    var person = member;
+                    <button type="button" id="member-@person.Id" class="member-result" @onclick="() => Select(person)">
+                        @if (!string.IsNullOrEmpty(person.AvatarUrl))
+                        {
+                            <img class="member-avatar" src="@person.AvatarUrl" alt="" />
+                        }
+                        <span class="member-name">@person.DisplayName</span>
+                        <span class="text-muted">@person.Username</span>
+                        @if (SignedUpIds.Contains(person.Id))
+                        {
+                            <span class="chip">already signed up</span>
+                        }
+                    </button>
+                }
+            </div>
+        }
+
+        <div class="editor-actions">
+            <button id="add-player-close" class="btn" @onclick="() => OnClose.InvokeAsync()">Close</button>
+        </div>
+    }
+    else
+    {
+        <p>Adding <strong>@_selected.DisplayName</strong> <button type="button" id="add-player-change" class="btn-link" @onclick="() => _selected = null">Change</button></p>
+
+        @if (IsWow)
+        {
+            <p class="text-muted">Choose their class and spec, or leave both empty to add them without one.</p>
+            <ClassSpecPicker EventKind="@EventKind" Icons="Icons" WowClass="@_class" WowSpec="@_spec" OnChanged="OnPicked" IdPrefix="add-" />
+        }
+
+        <div class="editor-actions">
+            <button id="add-player-submit" class="btn btn-primary" disabled="@(!CanAdd || _adding)" @onclick="AddAsync">@(_adding ? "Adding..." : "Add to event")</button>
+            <button id="add-player-close" class="btn" @onclick="() => OnClose.InvokeAsync()">Close</button>
+        </div>
+    }
+
+    @if (_error != null)
+    {
+        <div class="error-message"><strong>Error:</strong> @_error</div>
+    }
+</div>

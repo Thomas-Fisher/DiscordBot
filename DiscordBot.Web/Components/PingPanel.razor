@@ -1,0 +1,78 @@
+@using DiscordBot.Contracts
+@using DiscordBot.Web.Services
+@inject ApiService ApiService
+
+<div class="ping-panel">
+    <p class="text-muted ping-hint">Pings are posted in the event's channel as a reply to the announcement, mentioning only the people chosen.</p>
+
+    <div class="ping-buttons">
+        @if (ShowRoster)
+        {
+            <button id="ping-roster" class="btn @(_target == "Roster" ? "active" : "")" @onclick='() => ChooseAsync("Roster")'>📋 Ping the roster</button>
+            <button id="ping-standby" class="btn @(_target == "Standby" ? "active" : "")" @onclick='() => ChooseAsync("Standby")'>⏳ Ping standby</button>
+        }
+        <button id="ping-noresponse" class="btn @(_target == "NoResponse" ? "active" : "")" @onclick='() => ChooseAsync("NoResponse")'>❓ Ping people who haven't responded</button>
+    </div>
+
+    @if (_target != null)
+    {
+        <div class="ping-confirm">
+            @if (_target == "NoResponse")
+            {
+                <div class="detail-group">
+                    <label>Whose answers to look for (roles)</label>
+                    <RoleChecklist Roles="Roles" Selected="_roleIds" IdPrefix="ping-role-" OnChanged="LoadPreviewAsync" />
+                    <label class="role-option ping-unsure">
+                        <input id="ping-include-unsure" type="checkbox" checked="@_includeUnsure" @onchange="@((ChangeEventArgs e) => ToggleUnsureAsync(e.Value is true))" />
+                        Also ping people who answered unsure
+                    </label>
+                </div>
+            }
+
+            @if (_loading)
+            {
+                <p class="text-muted">Checking who would be pinged...</p>
+            }
+            else if (_problem != null)
+            {
+                <p id="ping-problem" class="ping-problem">@_problem</p>
+            }
+            else if (_preview != null)
+            {
+                <h4 id="ping-count">This will ping @_preview.Recipients.Count @(_preview.Recipients.Count == 1 ? "person" : "people")</h4>
+                @if (_preview.RecentlyPingedAt is { } at)
+                {
+                    <p id="ping-recent" class="ping-warning">⚠️ The same people were pinged @MinutesAgo(at) minutes ago. Send again only if you mean to.</p>
+                }
+                <div class="ping-recipients">
+                    @foreach (var recipient in _preview.Recipients)
+                    {
+                        <span class="ping-recipient chip">@(recipient.DisplayName ?? $"User {recipient.UserId}")@(recipient.Group != null ? $" · G{recipient.Group}" : "")</span>
+                    }
+                    @if (_preview.Recipients.Count == 0)
+                    {
+                        <span class="text-muted">Nobody.</span>
+                    }
+                </div>
+
+                <div class="detail-group">
+                    <label for="ping-note">Note (optional)</label>
+                    <textarea id="ping-note" class="form-textarea" maxlength="300" placeholder="Added at the top of the message, for example: bring flasks" @bind="_note" @bind:event="oninput"></textarea>
+                    <span class="text-muted ping-counter">@(_note?.Length ?? 0)/300</span>
+                </div>
+
+                <div class="ping-actions">
+                    <button id="ping-send" class="btn btn-primary" disabled="@(_sending || _preview.Recipients.Count == 0)" @onclick="SendAsync">
+                        @(_sending ? "Sending..." : $"Send ping to {_preview.Recipients.Count}")
+                    </button>
+                    <button id="ping-cancel" class="btn" @onclick="Cancel">Cancel</button>
+                </div>
+            }
+
+            @if (_sendError != null)
+            {
+                <p id="ping-error" class="ping-problem">@_sendError</p>
+            }
+        </div>
+    }
+</div>

@@ -1,0 +1,91 @@
+@page "/guild/{GuildId}"
+@inherits SignedInPage
+
+@if (IsAuthenticated)
+{
+    <div class="page-container guild-home">
+        <h1>@Guild?.Name</h1>
+        <p class="subtitle">Select a section to manage</p>
+
+        @if (IsLoading)
+        {
+            <div class="loading">
+                <p>Loading guild information...</p>
+            </div>
+        }
+        else if (ErrorMessage != null)
+        {
+            <div class="error-message">
+                <strong>Error:</strong> @ErrorMessage
+            </div>
+        }
+        else if (Guild == null)
+        {
+            <div class="empty-state">
+                <p>Guild not found.</p>
+            </div>
+        }
+        else
+        {
+            <div class="guild-header">
+                <div class="guild-icon">
+                    @if (!string.IsNullOrEmpty(Guild.Icon))
+                    {
+                        <img src="@GuildIcon.Url(Guild.Id, Guild.Icon)" alt="@Guild.Name" />
+                    }
+                    else
+                    {
+                        <div class="icon-placeholder">@(string.IsNullOrEmpty(Guild.Name) ? '?' : Guild.Name[0])</div>
+                    }
+                </div>
+                <div class="guild-header-text">
+                    @if (!string.IsNullOrWhiteSpace(Guild.Description))
+                    {
+                        <p class="guild-description">@Guild.Description</p>
+                    }
+                    <p class="guild-meta">
+                        <span>Owner: <strong>@(Guild.OwnerName ?? $"User {Guild.OwnerId}")</strong></span>
+                        <span>Server ID: <code>@Guild.Id</code></span>
+                    </p>
+                </div>
+            </div>
+
+            @if (Statistics != null)
+            {
+                <div class="guild-statistics-list">
+                    <div class="stat-item">
+                        <span class="stat-label">Members</span>
+                        <span class="stat-value">@Statistics.MemberCount</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Total Events</span>
+                        <span class="stat-value">@Statistics.TotalEvents</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Upcoming Events</span>
+                        <span class="stat-value">@Statistics.UpcomingEvents</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Roles</span>
+                        <span class="stat-value">@Statistics.RolesCount</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Channels</span>
+                        <span class="stat-value">@Statistics.ChannelsCount</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Created</span>
+                        <span class="stat-value">@Statistics.CreatedAt.ToString("MMM yyyy")</span>
+                    </div>
+                    @if (Statistics.BoostLevel > 0)
+                    {
+                        <div class="stat-item">
+                            <span class="stat-label">Boost Level</span>
+                            <span class="stat-value">@Statistics.BoostLevel</span>
+                        </div>
+                    }
+                </div>
+            }
+        }
+    </div>
+}

@@ -1,0 +1,126 @@
+# `docker compose up -d` starts what the app needs (PostgreSQL, Kafka, the Kafka UI and the telemetry dashboard) so you can run
+# the bot and dashboard from your IDE. `docker compose --profile app up -d --build` also runs the backend (API and bot) and the
+# dashboard as containers; that needs the values listed in .env.example (see the README).
+
+# Settings for the backend. Configured by environment variables. Your own Discord and JWT values are not here: they come
+# from .env (see env_file on the backend), and the app stops at start-up naming any that are missing.
+x-app-environment: &app-environment
+  ConnectionStrings__DefaultConnection: Server=postgres;Port=5432;Database=discord_bot;User Id=discord_bot;Password=discord_bot_dev;Gss Encryption Mode=Disable;
+  EventBus__Kafka__BootstrapServers: kafka:29092
+  OpenTelemetry__Endpoint: http://telemetry:18889
+  Cors__AllowedOrigins__0: http://localhost:5000
+  AllowedHosts: localhost
+  Discord__RedirectUri: http://localhost:5000/callback
+
+services:
+  # Kafka in KRaft mode: one node is both broker and controller, so no Zookeeper is needed.
+  # Two listeners: PLAINTEXT on localhost:9092 for the app running on your machine, and INTERNAL on kafka:29092 for
+  # other containers (Kafka UI).
+  kafka:
+    image: apache/kafka:3.9.0
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,INTERNAL://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # The app creates its own topics on startup
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka-kraft-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 15s
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: 'true'
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  # Shows what the app sends over OpenTelemetry (traces, metrics, logs) at http://localhost:18888. The app sends to
+  # localhost:4317 (OpenTelemetry:Endpoint). No sign-in: this is for local development only.
+  telemetry:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.5.2
+    ports:
+      - "18888:18888"
+      - "4317:18889"
+    environment:
+      DASHBOARD__FRONTEND__AUTHMODE: Unsecured
+      DASHBOARD__OTLP__AUTHMODE: Unsecured
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: discord_bot
+      POSTGRES_PASSWORD: discord_bot_dev
+      POSTGRES_DB: discord_bot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U discord_bot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # The backend: the HTTP API, the connection to Discord, the slash commands, the event consumer and the background work, in one
+  # process. Run exactly one copy (Discord allows one gateway connection per bot).
+  backend:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: DiscordBot.Api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "5001:8080"
+    restart: unless-stopped
+    # Discord__BotToken, Discord__ClientId, Discord__ClientSecret and Jwt__Secret come from .env (copy .env.example)
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      <<: *app-environment
+
+  # The dashboard, as static files served by nginx. The browser calls the API directly, so DASHBOARD_API_URL is the address
+  # the browser uses, not one for inside Docker.
+  dashboard:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: DiscordBot.Web/Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "5000:8080"
+    restart: unless-stopped
+    environment:
+      DASHBOARD_API_URL: http://localhost:5001
+
+volumes:
+  kafka-kraft-data:
+  postgres-data:

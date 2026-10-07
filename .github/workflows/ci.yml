@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - run: dotnet build --configuration Release
+
+      - name: Code style (dotnet format)
+        run: dotnet format --verify-no-changes --no-restore
+
+      # `dotnet list package` reports vulnerabilities but always exits 0, so look for its wording
+      - name: Vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive 2>&1 | tee vulnerabilities.txt
+          if grep -q "has the following vulnerable packages" vulnerabilities.txt; then
+            echo "A package with a known vulnerability is in use (listed above)"
+            exit 1
+          fi
+
+      # The tests start their own PostgreSQL and Kafka in containers (Testcontainers); the runner only needs Docker
+      - name: Test (including the PostgreSQL and Kafka integration tests)
+        run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory TestResults
+
+      # Line coverage was 66% when this was added; the gate is set a little below so it catches a real drop, not noise
+      - name: Coverage
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, sys
+          minimum = 60.0
+          report = glob.glob("TestResults/**/coverage.cobertura.xml", recursive=True)[0]
+          rate = float(re.search(r'line-rate="([\d.]+)"', open(report, encoding="utf-8").read()).group(1)) * 100
+          line = f"Line coverage: {rate:.1f}% (minimum {minimum:.0f}%)"
+          print(line)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              summary.write(f"### {line}\n")
+          sys.exit(0 if rate >= minimum else 1)
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: TestResults/**/coverage.cobertura.xml
+
+  # The same tests under a time zone and a culture that differ from the developer's, which is where date parsing and
+  # formatting mistakes show up
+  other-environments:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { zone: Pacific/Auckland, locale: tr_TR.UTF-8 }
+          - { zone: America/Los_Angeles, locale: de_DE.UTF-8 }
+    env:
+      TZ: ${{ matrix.zone }}
+      LANG: ${{ matrix.locale }}
+      LC_ALL: ${{ matrix.locale }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet test --configuration Release
+
+  # Both images have to keep building
+  docker-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f DiscordBot.Api/Dockerfile -t discordbot-api .
+      - run: docker build -f DiscordBot.Web/Dockerfile -t discordbot-dashboard .

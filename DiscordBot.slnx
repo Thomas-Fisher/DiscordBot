@@ -1,0 +1,10 @@
+<Solution>
+  <Project Path="DiscordBot.Api/DiscordBot.Api.csproj" />
+  <Project Path="DiscordBot.Application/DiscordBot.Application.csproj" />
+  <Project Path="DiscordBot.Contracts/DiscordBot.Contracts.csproj" />
+  <Project Path="DiscordBot.Discord/DiscordBot.Discord.csproj" />
+  <Project Path="DiscordBot.Domain/DiscordBot.Domain.csproj" />
+  <Project Path="DiscordBot.Infrastructure/DiscordBot.Infrastructure.csproj" />
+  <Project Path="DiscordBot.Tests/DiscordBot.Tests.csproj" />
+  <Project Path="DiscordBot.Web/DiscordBot.Web.csproj" />
+</Solution>

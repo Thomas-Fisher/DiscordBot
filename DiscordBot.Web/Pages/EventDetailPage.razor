@@ -1,0 +1,257 @@
+@using Microsoft.JSInterop
+@page "/guild/{GuildId}/event/{EventId}"
+@inherits SignedInPage
+@using DiscordBot.Domain.Wow
+@using DiscordBot.Web.Components
+@inject GuildClock Clock
+@inject IJSRuntime JSRuntime
+
+@if (IsAuthenticated)
+{
+    <div class="page-container">
+        <div class="page-header">
+            <a href="/guild/@GuildId/events" class="btn-back">&larr; Back</a>
+            @if (Event != null)
+            {
+                <h1>@Event.Title</h1>
+            }
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="loading">
+                <p>Loading event details...</p>
+            </div>
+        }
+        else if (Event == null)
+        {
+            <div class="empty-state">
+                <p>@(ErrorMessage == null ? "Event not found." : "The event could not be loaded.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="event-detail">
+                <div class="detail-section">
+                    <h2>Event Information</h2>
+                    <div class="detail-chips">
+                        <span class="status @Event?.Status?.ToLower()">@Event?.Status</span>
+                        <span class="chip">@TypeLabel(Event?.Type)</span>
+                        @if (Event?.IsRecurring ?? false)
+                        {
+                            <span class="chip">🔄 @Event?.RecurrencePattern</span>
+                        }
+                    </div>
+                    <div class="detail-group">
+                        <label>Title</label>
+                        <input type="text" value="@EditTitle" @onchange="OnTitleChanged" class="form-input" />
+                    </div>
+                    <div class="detail-group">
+                        <label>Description</label>
+                        <textarea value="@EditDescription" @onchange="OnDescriptionChanged" class="form-textarea"></textarea>
+                    </div>
+                    <div class="form-row">
+                    <div class="detail-group">
+                        <label>Scheduled Time (@Clock.Zone.Id)</label>
+                        <input type="datetime-local" value="@ScheduledTimeLocal.ToString("yyyy-MM-ddTHH:mm")" @onchange="OnScheduledTimeChanged" class="form-input" />
+                    </div>
+                    <div class="detail-group">
+                        <label>Duration (minutes)</label>
+                        <input type="number" min="@EventRules.MinDurationMinutes" max="@EventRules.MaxDurationMinutes" placeholder="No duration" value="@DurationInput" @onchange="@((ChangeEventArgs e) => DurationInput = e.Value?.ToString() ?? "")" class="form-input" />
+                    </div>
+                    </div>
+                    <div class="detail-group">
+                        <label>Remind people who haven't responded (hours before the start)</label>
+                        <input id="edit-reminder" type="number" min="0.5" max="@(EventRules.MaxReminderMinutes / 60)" step="0.5" placeholder="No reminder" value="@ReminderInput" @onchange="@((ChangeEventArgs e) => ReminderInput = e.Value?.ToString() ?? "")" class="form-input" />
+                    </div>
+                    <div class="detail-group">
+                        <label>Roles to ping</label>
+                        <RoleChecklist Roles="Roles" Selected="SelectedRoleIds" />
+                    </div>
+                    <div class="detail-group">
+                        <label>Created</label>
+                        <span>@(Event == null ? "" : Clock.Format(Event.CreatedAt))</span>
+                    </div>
+                    @if (Event?.IsRecurring ?? false)
+                    {
+                        <div class="detail-group recurring-info">
+                            <label>🔄 Recurring Event</label>
+                            <div>
+                                <span>Pattern: <strong>@Event?.RecurrencePattern</strong></span>
+                                @if ((Event?.ParentRecurringEventId.HasValue ?? false) && Event?.ParentRecurringEventId != Event?.EventId)
+                                {
+                                    <br />
+                                    <span class="text-muted">Part of series: `@Event?.ParentRecurringEventId`</span>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="event-side">
+                <div class="detail-section">
+                    <h2>Signups <span class="count">@Signups.Count(s => s.Status == "SignedUp")</span></h2>
+
+                    @if (CanEditSignups)
+                    {
+                        <div class="section-actions">
+                            <button id="add-player-toggle" class="btn" @onclick="ToggleAddPlayer">@(_showAddPlayer ? "Close" : "➕ Add player")</button>
+                        </div>
+                        @if (_showAddPlayer)
+                        {
+                            <AddPlayerPanel GuildId="@GuildId" EventId="Event!.EventId" EventKind="@Event.Type" Icons="Icons" SignedUpIds="SignedUpIds" OnAdded="OnPlayerAdded" OnClose="ToggleAddPlayer" />
+                        }
+                    }
+
+                    @if (Signups.Count == 0)
+                    {
+                        <p class="empty-state">No signups yet.</p>
+                    }
+                    else if (Event?.Type == "Generic")
+                    {
+                        <div class="signups-list">
+                            @foreach (var signup in Signups.Where(s => s.Status == "SignedUp").OrderBy(s => s.SignupOrder))
+                            {
+                                @SignupLine(signup)
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="signups-by-class">
+                            @foreach (var classGroup in Signups.Where(s => s.Status == "SignedUp").GroupBy(s => s.WowClass))
+                            {
+                                <div class="class-group">
+                                    <h4>@(classGroup.Key == null ? "No class chosen" : WowCatalog.DisplayName(classGroup.Key)) <span class="count">@classGroup.Count()</span></h4>
+                                    <div class="specs-list">
+                                        @foreach (var signup in classGroup.OrderBy(s => s.SignupOrder))
+                                        {
+                                            @SignupLine(signup)
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                @if (Signups.Any(s => s.Status != "SignedUp"))
+                {
+                    <div class="detail-section">
+                        <h2>Other Responses</h2>
+                        @if (Signups.Where(s => s.Status == "Unsure").Any())
+                        {
+                            <div class="unsure-section">
+                                <h4>🤷 Unsure</h4>
+                                @foreach (var signup in Signups.Where(s => s.Status == "Unsure"))
+                                {
+                                    @SignupLine(signup)
+                                }
+                            </div>
+                        }
+                        @if (Signups.Where(s => s.Status == "SignedOff").Any())
+                        {
+                            <div class="signedoff-section">
+                                <h4>❌ Signed Off</h4>
+                                @foreach (var signup in Signups.Where(s => s.Status == "SignedOff"))
+                                {
+                                    @SignupLine(signup)
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                </div>
+
+                @if (Event?.Type != "Generic" && Event?.Status == "Scheduled" && Signups.Any(s => s.Status == "SignedUp"))
+                {
+                    <div class="detail-section roster-section">
+                        <h2>Roster</h2>
+                        <RosterBoard Signups="Signups" Icons="Icons" OnSave="SaveRoster" IsSaving="_savingRoster" />
+                    </div>
+                }
+
+                @if (Event?.Status == "Scheduled" && Event.ChannelId != 0 && Event.MessageId != 0)
+                {
+                    <div class="detail-section ping-section">
+                        <h2>Ping people</h2>
+                        <PingPanel EventId="Event.EventId" Roles="Roles" EventRoleIds="Event.MentionRoleIds" ShowRoster="IsWowEvent" OnSent="OnPingSent" />
+                    </div>
+                }
+
+                @if (Event?.Status != "Cancelled")
+                {
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" @onclick="SaveEvent">
+                            💾 Save Changes
+                        </button>
+                        @if (CanCancel)
+                        {
+                            <button id="cancel-event" class="btn btn-warning" @onclick="CancelEvent">
+                                ⏹️ Cancel Event
+                            </button>
+                        }
+                        <button id="delete-event" class="btn btn-danger" @onclick="DeleteEvent">
+                            🗑️ Delete Event
+                        </button>
+                        @if (Event?.IsRecurring ?? false)
+                        {
+                            <button class="btn btn-warning" @onclick="CancelRecurringSeries">
+                                ⏹️ Cancel Series
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @if (ErrorMessage != null)
+        {
+            <div class="error-message">
+                <strong>Error:</strong> @ErrorMessage
+            </div>
+        }
+        @if (SuccessMessage != null)
+        {
+            <div class="success-message">
+                <strong>Success:</strong> @SuccessMessage
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private RenderFragment SignupLine(SignupDetailsDto signup) => @<div class="signup-entry">
+        <div class="signup-item">
+            @if (signup.Status == "SignedUp" && signup.SignupOrder is { } order)
+            {
+                <span class="signup-order">@order</span>
+            }
+            @if (Icons.ForPerson(signup.WowClass, signup.WowSpec) is { } iconUrl)
+            {
+                <img class="wow-icon" src="@iconUrl" alt="" />
+            }
+            <span class="signup-name">@NameOf(signup)</span>
+            @if (!string.IsNullOrEmpty(signup.WowSpec))
+            {
+                <span class="chip">@Capitalised(signup.WowSpec)</span>
+            }
+            @if (signup.Status == "SignedUp")
+            {
+                <span class="signup-time">@Clock.Format(signup.SignedUpAt, "MMM dd HH:mm")</span>
+            }
+            @if (CanEditSignups)
+            {
+                <button id="edit-signup-@signup.UserId" class="btn-edit" @onclick="() => ToggleEditSignup(signup.UserId)" title="Edit signup">✎</button>
+            }
+            @if (signup.Status == "SignedUp")
+            {
+                <button class="btn-remove" @onclick="() => RemoveSignup(signup.UserId)" title="Remove signup">✕</button>
+            }
+        </div>
+        @if (_editingUserId == signup.UserId)
+        {
+            <SignupEditor Signup="signup" EventKind="@Event!.Type" Icons="Icons" Saving="_savingSignup" OnSave="edit => SaveSignupAsync(signup.UserId, edit)" OnClose="() => ToggleEditSignup(signup.UserId)" />
+        }
+    </div>;
+}

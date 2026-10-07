@@ -1,0 +1,116 @@
+@page "/guild/{GuildId}/settings"
+@inherits SignedInPage
+@inject GuildClock Clock
+
+@if (IsAuthenticated)
+{
+    <div class="page-container">
+        <h1>Settings</h1>
+        <p class="subtitle">Configure guild settings and preferences</p>
+
+        @if (IsLoading)
+        {
+            <div class="loading">
+                <p>Loading settings...</p>
+            </div>
+        }
+        else if (CurrentGuildSetting == null && ErrorMessage == null)
+        {
+            <div class="empty-state">
+                <p>Guild settings not found.</p>
+            </div>
+        }
+        else if (CurrentGuildSetting != null)
+        {
+            <div class="settings-grid">
+                @{var setting = CurrentGuildSetting;}
+                    <div class="settings-card">
+                        <h3>@setting.GuildName</h3>
+                        
+                        <div class="settings-section">
+                            <label for="echo-channel-@setting.GuildId">Log channel</label>
+                            <input
+                                type="text"
+                                id="echo-channel-@setting.GuildId"
+                                data-guild-id="@setting.GuildId"
+                                placeholder="Channel ID (optional)"
+                                value="@setting.EchoChannelId"
+                                @onchange="(ChangeEventArgs e) => setting.EchoChannelId = e.Value?.ToString() ?? string.Empty"
+                                class="input-field"
+                            />
+                            <small>The Discord channel ID that logs are posted into</small>
+                        </div>
+
+                        <div class="settings-section">
+                            <label for="echo-enabled-@setting.GuildId">
+                                <input
+                                    type="checkbox"
+                                    id="echo-enabled-@setting.GuildId"
+                                    data-guild-id="@setting.GuildId"
+                                    checked="@setting.EchoEnabled"
+                                    @onchange="(ChangeEventArgs e) => setting.EchoEnabled = e.Value != null && (bool)e.Value"
+                                />
+                                Post logs to the channel
+                            </label>
+                            <small>Logs are always stored. When this is on, a copy is also posted to the channel above</small>
+                        </div>
+
+                        <div class="settings-section">
+                            <label for="time-zone-@setting.GuildId">Time zone</label>
+                            <select
+                                id="time-zone-@setting.GuildId"
+                                class="input-field"
+                                @onchange="(ChangeEventArgs e) => setting.TimeZone = e.Value?.ToString() ?? string.Empty">
+                                @foreach (var zone in TimeZones)
+                                {
+                                    <option value="@zone" selected="@(zone == setting.TimeZone)">@zone</option>
+                                }
+                            </select>
+                            <small>Times you type for events in Discord are read in this zone, and the dashboard shows times in it. Events are stored in UTC, so changing it never moves an existing event.</small>
+                        </div>
+
+                        <div class="settings-section">
+                            <label>Activity to record</label>
+                            @foreach (var category in AuditCategoryNames)
+                            {
+                                <label class="audit-category">
+                                    <input
+                                        type="checkbox"
+                                        checked="@(!setting.DisabledAuditCategories.Contains(category))"
+                                        @onchange="(ChangeEventArgs e) => SetAuditCategory(setting, category, e.Value is true)" />
+                                    @category
+                                </label>
+                            }
+                            <small>Joins and leaves, channel and role changes, edited and deleted messages, voice and reactions. Untick what this server does not need; events and signups are always recorded.</small>
+                        </div>
+
+                        <div class="settings-actions">
+                            <button 
+                                class="btn btn-primary settings-save-btn"
+                                data-guild-id="@setting.GuildId"
+                                type="button"
+                                @onclick="SaveAsync"
+                                disabled="@IsSaving"
+                            >
+                                Save Settings
+                            </button>
+                        </div>
+                    </div>
+            </div>
+        }
+
+        @if (SuccessMessage != null)
+        {
+            <div class="success-message">
+                <strong>Success:</strong> @SuccessMessage
+            </div>
+        }
+
+        @if (ErrorMessage != null)
+        {
+            <div class="error-message">
+                <strong>Error:</strong> @ErrorMessage
+            </div>
+        }
+    </div>
+}

@@ -1,0 +1,112 @@
+@page "/guild/{GuildId}/logs"
+@inherits SignedInPage
+@using Microsoft.JSInterop
+@inject GuildClock Clock
+@inject IJSRuntime JSRuntime
+
+@if (IsAuthenticated)
+{
+    <div class="page-container">
+        <h1>Activity Logs</h1>
+        <p class="subtitle">Activity and event logs for this server</p>
+
+        <div class="filter-controls">
+            <select class="filter-select" value="@SelectedActionType" @onchange="OnActionTypeChanged">
+                <option value="">All Actions</option>
+                <option value="Created">Created</option>
+                <option value="Updated">Updated</option>
+                <option value="Deleted">Deleted</option>
+                <option value="Cancelled">Cancelled</option>
+                <option value="CancelledRecurring">Cancelled Recurring</option>
+                <option value="CreatedRecurring">Created Recurring</option>
+                <option value="Completed">Completed</option>
+                <option value="SignedUp">Signed Up</option>
+                <option value="SignedOff">Signed Off</option>
+                <option value="MarkedUnsure">Marked Unsure</option>
+                <option value="UserJoined">User Joined</option>
+                <option value="UserLeft">User Left</option>
+                <option value="UserKicked">User Kicked</option>
+                <option value="UserBanned">User Banned</option>
+                <option value="MessageCreated">Message Created</option>
+                <option value="MessageDeleted">Message Deleted</option>
+                <option value="MessageUpdated">Message Updated</option>
+                <option value="ReactionAdded">Reaction Added</option>
+                <option value="ReactionRemoved">Reaction Removed</option>
+                <option value="ChannelCreated">Channel Created</option>
+                <option value="ChannelDeleted">Channel Deleted</option>
+                <option value="RoleCreated">Role Created</option>
+                <option value="RoleDeleted">Role Deleted</option>
+                <option value="VoiceStateChanged">Voice State Changed</option>
+            </select>
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="loading">
+                <p>Loading activity logs...</p>
+            </div>
+        }
+        else if (ErrorMessage != null)
+        {
+            <div class="error-message">
+                <strong>Error:</strong> @ErrorMessage
+            </div>
+        }
+        else if (Logs.Count == 0)
+        {
+            <div class="empty-state">
+                <p>No activity logs found. Logs will appear here when events occur.</p>
+            </div>
+        }
+        else
+        {
+            <div class="logs-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Action</th>
+                            <th>What happened</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in Logs)
+                        {
+                            <tr>
+                                <td>@Clock.Format(log.Timestamp, "MMM dd, yyyy HH:mm:ss")</td>
+                                <td>
+                                    <span class="action-badge">@FormatActionType(log.ActionType)</span>
+                                </td>
+                                <td class="log-summary">
+                                    @log.Summary
+                                    @if (log.Changes != null)
+                                    {
+                                        <details class="log-raw">
+                                            <summary>Raw details</summary>
+                                            <code>@log.Changes</code>
+                                        </details>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            @if (_previousCursors.Count > 0 || NextCursor != null)
+            {
+                <div class="pagination">
+                    <button class="btn" @onclick="PreviousPage" disabled="@(_previousCursors.Count == 0)">
+                        ← Newer
+                    </button>
+                    <span class="page-info">
+                        Page @(_previousCursors.Count + 1)
+                    </span>
+                    <button class="btn" @onclick="NextPage" disabled="@(NextCursor == null)">
+                        Older →
+                    </button>
+                </div>
+            }
+        }
+    </div>
+}

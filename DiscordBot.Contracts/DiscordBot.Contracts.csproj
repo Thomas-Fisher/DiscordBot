@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The request/response shapes of the HTTP API. Shared by the API and the Blazor front end so they cannot drift apart.
+       Plain classes only: no dependencies, so it is safe to reference from WebAssembly. -->
+
+</Project>

@@ -1,0 +1,27 @@
+<div class="signup-editor">
+    <div class="editor-row">
+        <span class="editor-label">Status</span>
+        @foreach (var (value, label) in Statuses)
+        {
+            var status = value;
+            <button type="button" id="status-@status" class="picker-option @(status == _status ? "selected" : "")" @onclick="() => _status = status">@label</button>
+        }
+    </div>
+
+    @if (ShowPicker)
+    {
+        <div class="editor-row">
+            <span class="editor-label">Class and spec</span>
+            <ClassSpecPicker EventKind="@EventKind" Icons="Icons" WowClass="@_class" WowSpec="@_spec" OnChanged="OnPicked" />
+        </div>
+        @if ((_class == null) != (_spec == null))
+        {
+            <p class="text-muted">Choose both a class and a spec.</p>
+        }
+    }
+
+    <div class="editor-actions">
+        <button id="signup-edit-save" class="btn btn-primary" disabled="@(!CanSave || Saving)" @onclick="SaveAsync">@(Saving ? "Saving..." : "Save")</button>
+        <button id="signup-edit-close" class="btn" @onclick="() => OnClose.InvokeAsync()">Close</button>
+    </div>
+</div>

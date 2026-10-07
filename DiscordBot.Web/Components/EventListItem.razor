@@ -1,0 +1,105 @@
+@using System.Globalization
+@using DiscordBot.Contracts
+@using DiscordBot.Web.Services
+@inject GuildClock Clock
+
+<a href="/guild/@GuildId/event/@Event.EventId" class="event-row @Event.Status.ToLower() @(IsInProgress ? "in-progress" : "")">
+    <div class="event-date">
+        <span class="event-date-day">@Local.ToString("ddd", CultureInfo.InvariantCulture)</span>
+        <span class="event-date-num">@Local.Day</span>
+        <span class="event-date-month">@Local.ToString("MMM", CultureInfo.InvariantCulture)</span>
+    </div>
+
+    <div class="event-main">
+        <div class="event-title-row">
+            <h3>@Event.Title</h3>
+            @if (IsInProgress)
+            {
+                <span class="status in-progress">In progress</span>
+            }
+            else
+            {
+                <span class="status @Event.Status.ToLower()">@Event.Status</span>
+            }
+            <span class="chip">@TypeLabel</span>
+            @if (Event.IsRecurring)
+            {
+                <span class="chip">🔄 @Event.RecurrencePattern</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Event.Description))
+        {
+            <p class="event-description">@Event.Description</p>
+        }
+
+        <div class="event-facts">
+            <span title="Start time">🕐 <span class="event-time">@Clock.Format(Event.ScheduledTime)</span> <span class="event-relative">(@Relative)</span></span>
+            @if (Event.DurationMinutes is { } minutes)
+            {
+                <span title="Duration">⏱ @DurationText(minutes) <span class="event-relative">until @EndText</span></span>
+            }
+            <span title="Signed up">👥 @Event.SignedUpCount signed up@(Event.UnsureCount > 0 ? $", {Event.UnsureCount} unsure" : "")</span>
+            @if (Event.MentionRoleIds.Count > 0)
+            {
+                <span title="Roles pinged when the event is announced">📣 @Event.MentionRoleIds.Count @(Event.MentionRoleIds.Count == 1 ? "role" : "roles") pinged</span>
+            }
+        </div>
+    </div>
+
+    <span class="event-chevron" aria-hidden="true">›</span>
+</a>
+
+@code {
+    [Parameter, EditorRequired]
+    public EventDto Event { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public string GuildId { get; set; } = null!;
+
+    /// <summary>The moment "in 3 days" and "in progress" are worked out against, so every row on a page agrees.</summary>
+    [Parameter, EditorRequired]
+    public DateTime NowUtc { get; set; }
+
+    private DateTime Local => Clock.Zone.ToLocal(Event.ScheduledTime);
+
+    private DateTime EndsAt => Event.ScheduledTime.AddMinutes(Event.DurationMinutes ?? 0);
+
+    private bool IsInProgress => Event.Status == "Scheduled" && Event.ScheduledTime <= NowUtc && EndsAt > NowUtc;
+
+    private string TypeLabel => Event.Type switch
+    {
+        "WowClassic" => "WoW Classic",
+        "WowForever" => "WoW Forever",
+        _ => Event.Type
+    };
+
+    private string EndText => Clock.Zone.ToLocal(EndsAt).Date == Local.Date
+        ? Clock.Format(EndsAt, "HH:mm")
+        : Clock.Format(EndsAt, "MMM dd HH:mm");
+
+    private string Relative
+    {
+        get
+        {
+            var difference = Event.ScheduledTime - NowUtc;
+            var future = difference > TimeSpan.Zero;
+            var amount = future ? difference : -difference;
+
+            var text = amount.TotalMinutes < 1 ? "now"
+                : amount.TotalHours < 1 ? $"{(int)amount.TotalMinutes} min"
+                : amount.TotalHours < 48 ? $"{(int)amount.TotalHours} h"
+                : $"{(int)amount.TotalDays} days";
+
+            return text == "now" ? text : future ? $"in {text}" : $"{text} ago";
+        }
+    }
+
+    private static string DurationText(int minutes)
+    {
+        var hours = minutes / 60;
+        var rest = minutes % 60;
+
+        return hours == 0 ? $"{rest}m" : rest == 0 ? $"{hours}h" : $"{hours}h {rest}m";
+    }
+}

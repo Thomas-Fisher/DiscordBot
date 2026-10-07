@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- Entity state is changed through methods; the tests arrange states directly -->
+    <InternalsVisibleTo Include="DiscordBot.Tests" />
+  </ItemGroup>
+
+</Project>

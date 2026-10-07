@@ -1,0 +1,46 @@
+@using DiscordBot.Domain.Enums
+@using DiscordBot.Domain.Wow
+
+<div class="class-spec-picker">
+    <div class="picker-row" role="group" aria-label="Class">
+        @foreach (var className in Classes)
+        {
+            var name = className;
+            <button type="button" id="@($"{IdPrefix}class-{name}")" class="picker-option @(name == WowClass ? "selected" : "")" title="@WowCatalog.DisplayName(name)" @onclick="() => PickClassAsync(name)">
+                @if (Icons.ForClass(name) is { } url)
+                {
+                    <img class="wow-icon" src="@url" alt="" />
+                }
+                <span>@WowCatalog.DisplayName(name)</span>
+            </button>
+        }
+    </div>
+
+    @if (WowClass != null)
+    {
+        <div class="picker-row" role="group" aria-label="Spec">
+            @foreach (var specName in Specs)
+            {
+                var spec = specName;
+                <button type="button" id="@($"{IdPrefix}spec-{spec}")" class="picker-option @(spec == WowSpec ? "selected" : "")" @onclick="() => PickSpecAsync(spec)">
+                    @if (Icons.ForSpec(WowClass, spec) is { } url)
+                    {
+                        <img class="wow-icon" src="@url" alt="" />
+                    }
+                    <span>@Capitalised(spec)</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<string> Classes => Enum.TryParse<EventType>(EventKind, out var type) ? WowCatalog.ClassesFor(type) : Array.Empty<string>();
+
+    private IReadOnlyList<string> Specs => Enum.TryParse<EventType>(EventKind, out var type) ? WowCatalog.SpecsFor(type, WowClass) : Array.Empty<string>();
+
+    private static string Capitalised(string text)
+    {
+        return char.ToUpperInvariant(text[0]) + text[1..];
+    }
+}

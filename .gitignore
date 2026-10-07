@@ -1,0 +1,85 @@
+# Build results
+bin/
+obj/
+*.dll
+*.exe
+*.pdb
+*.so
+*.dylib
+
+# Visual Studio
+.vs/
+.vscode/
+*.sln.user
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# Rider
+.idea/
+*.sln.iml
+
+# Local environment files (NEVER commit)
+.env
+.env.local
+appsettings.Local.json
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# NuGet
+.nuget/
+*.nupkg
+*.snupkg
+
+# Package manager
+packages/
+.nuget/packages/
+
+# ReSharper
+.resharper.user
+.vs/
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# Node (if using npm for front-end)
+node_modules/
+npm-debug.log
+
+# Discord Token (if accidentally added)
+*.token
+
+# Testing
+coverage/
+.coverage
+*.opencover.xml
+
+# IDE temp files
+*.swp
+*.swo
+*~
+.#*
+
+# OS
+.AppleDouble
+.LSOverride
+Desktop.ini
+
+# Docker volumes (local development)
+postgres-data/
+kafka-data/
+zookeeper-data/
+zookeeper-datalog/
+
+# Test results and coverage
+TestResults/
+

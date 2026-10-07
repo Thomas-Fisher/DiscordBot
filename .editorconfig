@@ -1,0 +1,24 @@
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,csproj,props}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{cs,razor}]
+# Every if/else/loop body gets braces, even a single statement
+csharp_prefer_braces = true:warning
+
+# No unused usings
+dotnet_diagnostic.IDE0005.severity = warning
+
+[**/Migrations/**.cs]
+generated_code = true

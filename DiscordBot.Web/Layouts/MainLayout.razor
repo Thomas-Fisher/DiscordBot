@@ -1,0 +1,57 @@
+@using DiscordBot.Web.Services
+@using DiscordBot.Contracts
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject AuthService AuthService
+@inject ApiService ApiService
+@inject NavigationManager Navigation
+
+<div class="layout">
+    <nav class="navbar">
+        <div class="navbar-content">
+            <div class="navbar-brand">
+                <h1>Discord Bot Admin</h1>
+            </div>
+            @if (IsAuthenticated)
+            {
+                <div class="guild-selector-container">
+                    <a href="/guilds" class="btn-select-guild">Select Server</a>
+                    @if (SelectedGuild != null)
+                    {
+                        <span class="guild-label">Current server: @SelectedGuild.Name</span>
+                    }
+                </div>
+            }
+            <div class="navbar-spacer"></div>
+            <ul class="nav-links">
+                @if (IsAuthenticated)
+                {
+                    <li class="user-section">
+                        <span>@CurrentUser?.Username</span>
+                        <button @onclick="HandleLogout" class="btn-logout">Logout</button>
+                    </li>
+                }
+                else
+                {
+                    <li><a href="/login">Login with Discord</a></li>
+                }
+            </ul>
+        </div>
+    </nav>
+
+    @if (IsAuthenticated && SelectedGuild != null)
+    {
+        <nav class="secondary-navbar">
+            <div class="secondary-nav-content">
+                <a href="/guild/@SelectedGuild.Id" class="nav-link @(CurrentPage == "" ? "active" : "")">Home</a>
+                <a href="/guild/@SelectedGuild.Id/events" class="nav-link @(CurrentPage == "events" ? "active" : "")">Events</a>
+                <a href="/guild/@SelectedGuild.Id/settings" class="nav-link @(CurrentPage == "settings" ? "active" : "")">Settings</a>
+                <a href="/guild/@SelectedGuild.Id/logs" class="nav-link @(CurrentPage == "logs" ? "active" : "")">Logs</a>
+            </div>
+        </nav>
+    }
+
+    <main class="main-content">
+        @Body
+    </main>
+</div>

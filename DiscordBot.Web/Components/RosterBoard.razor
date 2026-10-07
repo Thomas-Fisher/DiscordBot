@@ -1,0 +1,117 @@
+@using DiscordBot.Contracts
+@using DiscordBot.Domain.Common
+@using DiscordBot.Domain.Wow
+
+<div class="roster-board">
+    <div class="roster-header">
+        <div class="roster-summary" id="roster-summary">
+            <span title="Tanks in the roster">🛡️ Tanks <strong>@Count(WowRole.Tank)</strong></span>
+            <span title="Healers in the roster">💚 Healers <strong>@Count(WowRole.Healer)</strong></span>
+            <span title="Melee DPS in the roster">⚔️ Melee <strong>@Count(WowRole.Melee)</strong></span>
+            <span title="Ranged DPS in the roster">🏹 Ranged <strong>@Count(WowRole.Ranged)</strong></span>
+            <span class="text-muted">(@InRoster.Count in the roster, @NotInGroup.Count signed up and not in a group, @UnsureOut.Count unsure)</span>
+        </div>
+        <div class="roster-tools">
+            <label>
+                Auto-fill the first
+                <input id="roster-autofill-count" type="number" min="1" max="@(RosterRules.GroupSize * RosterRules.MaxGroups)" @bind="AutoFillCount" class="form-input roster-count" />
+                people
+            </label>
+            <button id="roster-autofill" class="btn" @onclick="AutoFill">Auto-fill</button>
+            <button id="roster-clear" class="btn" @onclick="Clear">Clear</button>
+        </div>
+    </div>
+
+    <p class="text-muted roster-hint">Drag people between the boxes (or use the drop-down on a card). Groups hold five, and people who answered unsure can be put in a group too.</p>
+
+    <div class="roster-boxes">
+        <div id="roster-box-standby" class="roster-box standby @DropClass(null)"
+             @ondragover:preventDefault="true" @ondragover="() => _over = 0" @ondragleave="() => _over = null"
+             @ondrop="() => DropOn(null)" @ondrop:preventDefault="true">
+            <h4>✅ Signed up <span class="count">@NotInGroup.Count</span></h4>
+            @if (NotInGroup.Count == 0)
+            {
+                <p class="text-muted">Everyone signed up is in a group.</p>
+            }
+            @foreach (var person in NotInGroup)
+            {
+                @Card(person)
+            }
+        </div>
+
+        @if (UnsureOut.Count > 0)
+        {
+            <div id="roster-box-unsure" class="roster-box standby @DropClass(null)"
+                 @ondragover:preventDefault="true" @ondragover="() => _over = 0" @ondragleave="() => _over = null"
+                 @ondrop="() => DropOn(null)" @ondrop:preventDefault="true">
+                <h4>🤷 Unsure <span class="count">@UnsureOut.Count</span></h4>
+                @foreach (var person in UnsureOut)
+                {
+                    @Card(person)
+                }
+            </div>
+        }
+
+        @foreach (var group in ShownGroups)
+        {
+            var members = MembersOf(group);
+            <div id="roster-box-@group" class="roster-box @(members.Count >= RosterRules.GroupSize ? "full" : "") @DropClass(group)"
+                 @ondragover:preventDefault="true" @ondragover="() => _over = group" @ondragleave="() => _over = null"
+                 @ondrop="() => DropOn(group)" @ondrop:preventDefault="true">
+                <h4>Group @group <span class="count">@members.Count/@RosterRules.GroupSize</span></h4>
+                @if (members.Count == 0)
+                {
+                    <p class="text-muted">Empty</p>
+                }
+                @foreach (var person in members)
+                {
+                    @Card(person)
+                }
+            </div>
+        }
+
+        @if (CanAddGroup)
+        {
+            <div id="roster-box-new" class="roster-box new-group @DropClass(NextGroup)"
+                 @ondragover:preventDefault="true" @ondragover="() => _over = NextGroup" @ondragleave="() => _over = null"
+                 @ondrop="() => DropOn(NextGroup)" @ondrop:preventDefault="true">
+                <h4>+ New group</h4>
+                <p class="text-muted">Drop someone here</p>
+            </div>
+        }
+    </div>
+
+    <div class="roster-actions">
+        <button id="roster-save" class="btn btn-primary" disabled="@(!IsDirty || IsSaving)" @onclick="SaveAsync">
+            @(IsSaving ? "Saving..." : "Save roster")
+        </button>
+        <button id="roster-discard" class="btn" disabled="@(!IsDirty || IsSaving)" @onclick="Discard">Discard changes</button>
+        @if (IsDirty)
+        {
+            <span class="text-muted">You have unsaved changes.</span>
+        }
+    </div>
+</div>
+
+@code {
+    private RenderFragment Card(SignupDetailsDto person) => @<div id="roster-card-@person.UserId" class="roster-card @RoleClass(person)" draggable="true"
+                                                                  @ondragstart="() => _dragging = person.UserId" @ondragend="() => { _dragging = null; _over = null; }">
+        @if (Icons.ForPerson(person.WowClass, person.WowSpec) is { } iconUrl)
+        {
+            <img class="wow-icon" src="@iconUrl" alt="" />
+        }
+        <span class="signup-name">@Name(person)@(person.Status == "Unsure" ? " 🤷" : "")</span>
+        @if (!string.IsNullOrEmpty(person.WowSpec))
+        {
+            <span class="chip">@Capitalised(person.WowSpec)</span>
+        }
+        <select class="roster-select" title="Move to..." value="@(GroupOf(person)?.ToString() ?? "")" @onchange="e => MoveFromSelect(person.UserId, e.Value?.ToString())">
+            <option value="">No group</option>
+            @for (var group = 1; group <= RosterRules.MaxGroups; group++)
+            {
+                var option = group;
+                <option value="@option" disabled="@(IsFull(option) && GroupOf(person) != option)">Group @option</option>
+            }
+        </select>
+    </div>;
+}

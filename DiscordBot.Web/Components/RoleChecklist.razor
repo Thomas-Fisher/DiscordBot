@@ -1,0 +1,17 @@
+@if (Roles.Count == 0)
+{
+    <span class="text-muted">No roles available.</span>
+}
+else
+{
+    <div class="role-list">
+        @foreach (var role in Roles)
+        {
+            var roleId = ulong.Parse(role.Id);
+            <label class="role-option">
+                <input id="@(IdPrefix == null ? null : IdPrefix + role.Id)" type="checkbox" checked="@Selected.Contains(roleId)" @onchange="@((ChangeEventArgs e) => ToggleAsync(roleId, e.Value is true))" />
+                @role.Name
+            </label>
+        }
+    </div>
+}
